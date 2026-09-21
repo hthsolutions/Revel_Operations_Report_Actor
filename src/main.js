@@ -1368,13 +1368,34 @@ try {
 
 
             // ==================================================
-            // FIND CSV EXPORT
+            // OPEN EXPORT MENU AND FIND VISIBLE CSV
             // ==================================================
 
-            const csvExportLink =
+            const exportMenuButton =
+                page.locator(
+                    '.header-more .button-more, '
+                    + '.button.button-square.button-more',
+                ).first();
+
+
+            await exportMenuButton.waitFor({
+                state: 'visible',
+                timeout: 30_000,
+            });
+
+
+            log.info(
+                'Opening Operations Export menu.',
+            );
+
+
+            await exportMenuButton.click();
+
+
+            const visibleCsvExportLink =
                 page
                     .locator(
-                        'a[href^="data.csv?"]',
+                        'a[href^="data.csv?"]:visible',
                     )
                     .filter({
                         hasText:
@@ -1383,25 +1404,33 @@ try {
                     .first();
 
 
-            await csvExportLink.waitFor({
+            await visibleCsvExportLink.waitFor({
                 state: 'visible',
                 timeout: 30_000,
             });
 
 
             const csvHref =
-                await csvExportLink
+                await visibleCsvExportLink
                     .getAttribute('href');
 
 
+            if (!csvHref) {
+                throw new Error(
+                    'Visible Operations CSV export '
+                    + 'does not contain an href.',
+                );
+            }
+
+
             log.info(
-                `Operations CSV export found: `
+                `Visible Operations CSV export found: `
                 + `${csvHref}`,
             );
 
 
             // ==================================================
-            // DOWNLOAD CSV
+            // DOWNLOAD CSV THROUGH VISIBLE EXPORT CONTROL
             // ==================================================
 
             const downloadPromise =
@@ -1413,7 +1442,7 @@ try {
                 );
 
 
-            await csvExportLink.click();
+            await visibleCsvExportLink.click();
 
 
             const download =
