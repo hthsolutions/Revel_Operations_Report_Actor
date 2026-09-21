@@ -630,13 +630,96 @@ try {
                 );
 
 
-                await targetOption.click();
+                // FancyTree titles can be visible without a simple
+                // Playwright click triggering Revel's selection handler.
+                // Dispatch a native mouse sequence against the exact title.
+                await targetOption.scrollIntoViewIfNeeded();
+
+                const clickedTreeText =
+                    await targetOption.evaluate(
+                        (element) => {
+                            const text =
+                                element.textContent?.trim()
+                                || '';
+
+                            element.dispatchEvent(
+                                new MouseEvent(
+                                    'mousedown',
+                                    {
+                                        bubbles: true,
+                                        cancelable: true,
+                                        view: window,
+                                    },
+                                ),
+                            );
+
+                            element.dispatchEvent(
+                                new MouseEvent(
+                                    'mouseup',
+                                    {
+                                        bubbles: true,
+                                        cancelable: true,
+                                        view: window,
+                                    },
+                                ),
+                            );
+
+                            element.dispatchEvent(
+                                new MouseEvent(
+                                    'click',
+                                    {
+                                        bubbles: true,
+                                        cancelable: true,
+                                        view: window,
+                                    },
+                                ),
+                            );
+
+                            return text;
+                        },
+                    );
 
 
                 log.info(
-                    `Clicked ${targetEstablishment}. `
-                    + `Waiting for establishment header `
-                    + `to update.`,
+                    `Dispatched native click sequence on `
+                    + `establishment tree entry: `
+                    + `${clickedTreeText}`,
+                );
+
+
+                const headerImmediatelyAfterClick =
+                    (
+                        await establishmentText
+                            .textContent()
+                    )?.trim();
+
+
+                log.info(
+                    `Establishment header immediately `
+                    + `after click: `
+                    + `${headerImmediatelyAfterClick}`,
+                );
+
+
+                await page.waitForTimeout(2000);
+
+
+                const headerAfterTwoSeconds =
+                    (
+                        await establishmentText
+                            .textContent()
+                    )?.trim();
+
+
+                log.info(
+                    `Establishment header after 2 seconds: `
+                    + `${headerAfterTwoSeconds}`,
+                );
+
+
+                log.info(
+                    `Current URL after establishment click: `
+                    + `${page.url()}`,
                 );
             }
 
@@ -645,31 +728,63 @@ try {
             // VERIFY ESTABLISHMENT
             // ==================================================
 
-            await page.waitForFunction(
-                (expectedEstablishment) => {
+            try {
 
-                    const element =
-                        document.querySelector(
-                            '[data-cy='
-                            + '"header-establishment-text"]',
+                await page.waitForFunction(
+                    (expectedEstablishment) => {
+
+                        const element =
+                            document.querySelector(
+                                '[data-cy='
+                                + '"header-establishment-text"]',
+                            );
+
+                        if (!element) {
+                            return false;
+                        }
+
+                        return (
+                            element.textContent
+                                ?.trim()
+                                === expectedEstablishment
                         );
 
-                    if (!element) {
-                        return false;
-                    }
+                    },
+                    targetEstablishment,
+                    {
+                        timeout: 30_000,
+                        polling: 250,
+                    },
+                );
 
-                    return (
-                        element.textContent
-                            ?.trim()
-                            === expectedEstablishment
-                    );
+            } catch (verificationError) {
 
-                },
-                targetEstablishment,
-                {
-                    timeout: 30_000,
-                },
-            );
+                const finalHeaderText =
+                    (
+                        await establishmentText
+                            .textContent()
+                    )?.trim()
+                    || 'Unknown';
+
+
+                const panelVisible =
+                    await page
+                        .locator(
+                            'span.fancytree-title:visible',
+                        )
+                        .count();
+
+
+                throw new Error(
+                    `Establishment selection did not complete. `
+                    + `Clicked "${targetEstablishmentTreeText}", `
+                    + `but header is still "${finalHeaderText}". `
+                    + `Visible FancyTree titles: ${panelVisible}. `
+                    + `URL: ${page.url()}. `
+                    + `Original verification error: `
+                    + `${verificationError.message}`,
+                );
+            }
 
 
             currentEstablishment =
