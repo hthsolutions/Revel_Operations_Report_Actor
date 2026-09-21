@@ -164,6 +164,17 @@ function extractCashSummary(rows) {
 
 
 // --------------------------------------------------
+// ESTABLISHMENT MAPPING
+// --------------------------------------------------
+
+const ESTABLISHMENT_MAP = {
+    Lampasas: '41 | Lampasas',
+    Leander: '42 | Leander',
+    'Marble Falls': '29 | Marble Falls',
+};
+
+
+// --------------------------------------------------
 // MAIN
 // --------------------------------------------------
 
@@ -294,8 +305,25 @@ try {
         establishment.trim();
 
 
+    const targetEstablishmentTreeText =
+        ESTABLISHMENT_MAP[targetEstablishment];
+
+
+    if (!targetEstablishmentTreeText) {
+        throw new Error(
+            `Unsupported establishment: ${targetEstablishment}`,
+        );
+    }
+
+
     log.info(
         `Target establishment: ${targetEstablishment}`,
+    );
+
+
+    log.info(
+        `Target establishment tree entry: `
+        + `${targetEstablishmentTreeText}`,
     );
 
     log.info(
@@ -555,26 +583,45 @@ try {
                 // Find requested establishment
                 // ----------------------------------------------
 
-                const establishmentOptions =
-                    page.locator(
-                        'span.fancytree-title',
-                    );
+                const escapedTreeText =
+                    targetEstablishmentTreeText
+                        .replace(
+                            /[.*+?^${}()|[\]\\]/g,
+                            '\\$&',
+                        );
 
 
                 const targetOption =
-                    establishmentOptions
+                    page
+                        .locator(
+                            'span.fancytree-title',
+                        )
                         .filter({
                             hasText:
-                                targetEstablishment,
-                        });
+                                new RegExp(
+                                    `^\\s*${escapedTreeText}\\s*$`,
+                                ),
+                        })
+                        .first();
 
 
-                await targetOption
-                    .first()
-                    .waitFor({
-                        state: 'visible',
-                        timeout: 30_000,
-                    });
+                await targetOption.waitFor({
+                    state: 'visible',
+                    timeout: 30_000,
+                });
+
+
+                const selectedTreeText =
+                    (
+                        await targetOption
+                            .textContent()
+                    )?.trim();
+
+
+                log.info(
+                    `Found establishment tree entry: `
+                    + `${selectedTreeText}`,
+                );
 
 
                 log.info(
@@ -583,9 +630,14 @@ try {
                 );
 
 
-                await targetOption
-                    .first()
-                    .click();
+                await targetOption.click();
+
+
+                log.info(
+                    `Clicked ${targetEstablishment}. `
+                    + `Waiting for establishment header `
+                    + `to update.`,
+                );
             }
 
 
