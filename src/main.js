@@ -728,44 +728,42 @@ try {
             // VERIFY ESTABLISHMENT
             // ==================================================
 
-            try {
+            const establishmentVerificationDeadline =
+                Date.now() + 30_000;
 
-                await page.waitForFunction(
-                    (expectedEstablishment) => {
 
-                        const element =
-                            document.querySelector(
-                                '[data-cy='
-                                + '"header-establishment-text"]',
-                            );
+            let verifiedHeaderText = 'Unknown';
 
-                        if (!element) {
-                            return false;
-                        }
 
-                        return (
-                            element.textContent
-                                ?.trim()
-                                === expectedEstablishment
-                        );
+            while (
+                Date.now()
+                < establishmentVerificationDeadline
+            ) {
 
-                    },
-                    targetEstablishment,
-                    {
-                        timeout: 30_000,
-                        polling: 250,
-                    },
-                );
-
-            } catch (verificationError) {
-
-                const finalHeaderText =
+                verifiedHeaderText =
                     (
                         await establishmentText
                             .textContent()
                     )?.trim()
                     || 'Unknown';
 
+
+                if (
+                    verifiedHeaderText
+                    === targetEstablishment
+                ) {
+                    break;
+                }
+
+
+                await page.waitForTimeout(250);
+            }
+
+
+            if (
+                verifiedHeaderText
+                !== targetEstablishment
+            ) {
 
                 const panelVisible =
                     await page
@@ -778,13 +776,17 @@ try {
                 throw new Error(
                     `Establishment selection did not complete. `
                     + `Clicked "${targetEstablishmentTreeText}", `
-                    + `but header is still "${finalHeaderText}". `
+                    + `but header is "${verifiedHeaderText}". `
                     + `Visible FancyTree titles: ${panelVisible}. `
-                    + `URL: ${page.url()}. `
-                    + `Original verification error: `
-                    + `${verificationError.message}`,
+                    + `URL: ${page.url()}.`,
                 );
             }
+
+
+            log.info(
+                `Establishment header verification passed: `
+                + `${verifiedHeaderText}`,
+            );
 
 
             currentEstablishment =
