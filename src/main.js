@@ -7,34 +7,9 @@ import { createClient } from '@supabase/supabase-js';
 
 await Actor.init();
 
+log.info('Actor initialized successfully.');
 
-// --------------------------------------------------
-// SUPABASE
-// --------------------------------------------------
-
-const supabaseUrl =
-    process.env.SUPABASE_URL
-    || 'https://ongqhvokcwceqgnetonq.supabase.co';
-
-const supabaseServiceRoleKey =
-    process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-if (!supabaseServiceRoleKey) {
-    throw new Error(
-        'SUPABASE_SERVICE_ROLE_KEY is not configured.',
-    );
-}
-
-const supabase = createClient(
-    supabaseUrl,
-    supabaseServiceRoleKey,
-    {
-        auth: {
-            persistSession: false,
-            autoRefreshToken: false,
-        },
-    },
-);
+let supabase;
 
 
 // --------------------------------------------------
@@ -194,7 +169,57 @@ function extractCashSummary(rows) {
 
 try {
 
+    log.info('Starting Revel Operations Cash Summary actor.');
+
+    // --------------------------------------------------
+    // SUPABASE
+    // --------------------------------------------------
+
+    log.info('Reading Supabase configuration.');
+
+    const supabaseUrl =
+        process.env.SUPABASE_URL
+        || 'https://ongqhvokcwceqgnetonq.supabase.co';
+
+    const supabaseServiceRoleKey =
+        process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+    log.info('Supabase environment check.', {
+        hasUrl: Boolean(supabaseUrl),
+        hasServiceRoleKey: Boolean(supabaseServiceRoleKey),
+    });
+
+    if (!supabaseServiceRoleKey) {
+        throw new Error(
+            'SUPABASE_SERVICE_ROLE_KEY is not configured.',
+        );
+    }
+
+    supabase = createClient(
+        supabaseUrl,
+        supabaseServiceRoleKey,
+        {
+            auth: {
+                persistSession: false,
+                autoRefreshToken: false,
+            },
+        },
+    );
+
+    log.info('Supabase client initialized.');
+
+    // --------------------------------------------------
+    // ACTOR INPUT
+    // --------------------------------------------------
+
+    log.info('Reading Actor input.');
+
     const input = await Actor.getInput();
+
+    log.info('Actor input received.', {
+        hasInput: Boolean(input),
+        inputKeys: input ? Object.keys(input) : [],
+    });
 
     const {
         url =
@@ -1631,9 +1656,13 @@ try {
     // RUN
     // --------------------------------------------------
 
+    log.info(`Starting crawler with URL: ${url}`);
+
     await crawler.run([
         url,
     ]);
+
+    log.info('Crawler finished.');
 
 } finally {
 
