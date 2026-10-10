@@ -164,6 +164,104 @@ function extractCashSummary(rows) {
 
 
 // --------------------------------------------------
+// DISCOUNT REASON PARSER
+// --------------------------------------------------
+
+function isDiscountSectionHeader(row) {
+    const label =
+        String(row?.[0] ?? '').trim();
+
+    const columnHeader =
+        String(row?.[1] ?? '').trim();
+
+    if (!label || !columnHeader) {
+        return false;
+    }
+
+    // The next report section starts with a label
+    // such as Qty, Amount, or Hours instead of a number.
+    return toNumber(columnHeader) === null;
+}
+
+
+function extractDiscountReasons(rows) {
+
+    const startIndex = rows.findIndex((row) => {
+        const firstColumn =
+            String(row?.[0] ?? '')
+                .trim()
+                .toUpperCase();
+
+        return firstColumn === 'DISCOUNT REASON';
+    });
+
+    if (startIndex === -1) {
+        throw new Error(
+            'Unable to find DISCOUNT REASON in Operations CSV.',
+        );
+    }
+
+    log.info(
+        `DISCOUNT REASON found at CSV row ${startIndex + 1}.`,
+    );
+
+    const discountReasons = [];
+
+    for (
+        let index = startIndex + 1;
+        index < rows.length;
+        index++
+    ) {
+
+        const row = rows[index];
+
+        const reason =
+            String(row?.[0] ?? '').trim();
+
+        if (isDiscountSectionHeader(row)) {
+            log.info(
+                'Reached the next Operations section. '
+                + 'Discount Reason extraction complete.',
+            );
+
+            break;
+        }
+
+        if (!reason) {
+            continue;
+        }
+
+        discountReasons.push({
+            reason,
+            qty: toNumber(row?.[1]),
+            total: toNumber(row?.[2]),
+        });
+    }
+
+    log.info(
+        `Extracted ${discountReasons.length} `
+        + 'discount reason row(s).',
+    );
+
+    return discountReasons;
+}
+
+
+function buildDiscountReasonDictionary(discountReasons) {
+    const discountReasonsByName = {};
+
+    for (const entry of discountReasons) {
+        discountReasonsByName[entry.reason] = {
+            qty: entry.qty,
+            total: entry.total,
+        };
+    }
+
+    return discountReasonsByName;
+}
+
+
+// --------------------------------------------------
 // ESTABLISHMENT MAPPING
 // --------------------------------------------------
 
@@ -1535,16 +1633,27 @@ try {
 
 
             // ==================================================
-            // CASH SUMMARY ONLY
+            // CASH SUMMARY AND DISCOUNT REASONS
             // ==================================================
 
             const cashSummary =
                 extractCashSummary(rows);
 
+            const discountReasons =
+                extractDiscountReasons(rows);
+
 
             log.info(
                 'Cash Summary extracted.',
                 cashSummary,
+            );
+
+            log.info(
+                'Discount Reasons extracted.',
+                {
+                    count: discountReasons.length,
+                    reasons: discountReasons,
+                },
             );
 
 
@@ -1770,6 +1879,68 @@ try {
 
 
             // ==================================================
+            // DISCOUNT REASON ROW
+            // ==================================================
+
+            const discountReasonDictionary =
+                buildDiscountReasonDictionary(
+                    discountReasons,
+                );
+
+            const discountReasonRow = {
+
+                id:
+                    `${formattedBusinessDate}_`
+                    + `${currentEstablishment}`,
+
+                location:
+                    currentEstablishment,
+
+                business_date:
+                    formattedBusinessDate,
+
+                discount_reasons:
+                    discountReasonDictionary,
+
+                extracted_at:
+                    new Date().toISOString(),
+            };
+
+
+            const {
+                data: savedDiscountRows,
+                error: discountSupabaseError,
+            } =
+                await supabase
+                    .from(
+                        'daily-revel-discount-reason',
+                    )
+                    .upsert(
+                        discountReasonRow,
+                        {
+                            onConflict: 'id',
+                        },
+                    )
+                    .select();
+
+
+            if (discountSupabaseError) {
+                throw new Error(
+                    'Unable to write Discount Reasons '
+                    + 'to Supabase: '
+                    + `${discountSupabaseError.message}`,
+                );
+            }
+
+
+            log.info(
+                `Discount Reasons saved to Supabase: `
+                + `${discountReasonRow.id}`,
+                discountReasonDictionary,
+            );
+
+
+            // ==================================================
             // ACTOR DATASET LOG
             // ==================================================
 
@@ -1778,7 +1949,8 @@ try {
                 status: 'success',
 
                 report:
-                    'Operations - Cash Summary',
+                    'Operations - Cash Summary '
+                    + 'and Discount Reasons',
 
                 location:
                     currentEstablishment,
@@ -1794,6 +1966,17 @@ try {
 
                 savedRows:
                     savedRows?.length ?? 0,
+
+                discountReasonRecordId:
+                    discountReasonRow.id,
+
+                discountReasonCount:
+                    Object.keys(
+                        discountReasonDictionary,
+                    ).length,
+
+                savedDiscountRows:
+                    savedDiscountRows?.length ?? 0,
 
                 timestamp:
                     new Date()
@@ -1826,7 +2009,8 @@ try {
                 status: 'failed',
 
                 report:
-                    'Operations - Cash Summary',
+                    'Operations - Cash Summary '
+                    + 'and Discount Reasons',
 
                 portalUrl:
                     page
