@@ -104,9 +104,7 @@ function calculateStartDate(today = new Date()) {
 
 
 function calculateEndDate(today = new Date()) {
-    return formatDateParts(
-        getCentralDateParts(today),
-    );
+    return calculateStartDate(today);
 }
 
 
@@ -444,7 +442,7 @@ try {
         override_flag
             ? 'Using override dates.'
             : 'Calculated dates for US Central Time. '
-                + 'Start date is yesterday and end date is today.',
+                + 'Start and end date are both yesterday.',
         {
             override_flag,
             startDate,

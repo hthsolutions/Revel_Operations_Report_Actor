@@ -47,7 +47,7 @@
             "title": "Override dates",
             "type": "boolean",
             "editor": "checkbox",
-            "description": "When enabled, the Actor uses override_startDate and override_endDate. When disabled, startDate is yesterday in US Central Time and endDate is today in US Central Time.",
+            "description": "When enabled, the Actor uses override_startDate and override_endDate. When disabled, start and end date are both yesterday in US Central Time.",
             "default": false
         },
         "override_startDate": {
