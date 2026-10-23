@@ -2,7 +2,7 @@
     "actorSpecification": 1,
     "name": "revel-operations-report-actor",
     "title": "Layne's Revel Report Exporter",
-    "description": "Logs into the Layne's Revel portal, exports the Operations report for a selected location and business date, and saves the cash summary and discount reasons to Supabase.",
+    "description": "Logs into the Layne's Revel portal, exports the Operations report for a selected location and business date, and saves the discount reasons to Supabase.",
     "version": "0.1",
     "buildTag": "latest",
     "dockerfile": "../Dockerfile",

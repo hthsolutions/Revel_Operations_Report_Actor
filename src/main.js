@@ -149,83 +149,6 @@ function toNumber(value) {
 
 
 // --------------------------------------------------
-// CASH SUMMARY PARSER
-// --------------------------------------------------
-
-function extractCashSummary(rows) {
-
-    const startIndex = rows.findIndex((row) => {
-        const firstColumn =
-            String(row?.[0] ?? '')
-                .trim()
-                .toUpperCase();
-
-        return firstColumn === 'CASH SUMMARY';
-    });
-
-    if (startIndex === -1) {
-        throw new Error(
-            'Unable to find CASH SUMMARY in Operations CSV.',
-        );
-    }
-
-    log.info(
-        `CASH SUMMARY found at CSV row ${startIndex + 1}.`,
-    );
-
-    const cashSummary = {};
-
-    for (
-        let index = startIndex + 1;
-        index < rows.length;
-        index++
-    ) {
-
-        const row = rows[index];
-
-        const field =
-            String(row?.[0] ?? '').trim();
-
-        const rawValue = row?.[1];
-
-        const normalizedField =
-            field.toUpperCase();
-
-        // ------------------------------------------
-        // Stop when the next section begins
-        // ------------------------------------------
-
-        if (normalizedField === 'CASH OFFICE') {
-            log.info(
-                'Reached CASH OFFICE. '
-                + 'Cash Summary extraction complete.',
-            );
-
-            break;
-        }
-
-        // ------------------------------------------
-        // Ignore blank rows
-        // ------------------------------------------
-
-        if (!field) {
-            continue;
-        }
-
-        cashSummary[field] = rawValue;
-    }
-
-    if (Object.keys(cashSummary).length === 0) {
-        throw new Error(
-            'CASH SUMMARY was found but contained no values.',
-        );
-    }
-
-    return cashSummary;
-}
-
-
-// --------------------------------------------------
 // DISCOUNT REASON PARSER
 // --------------------------------------------------
 
@@ -340,7 +263,7 @@ const ESTABLISHMENT_MAP = {
 
 try {
 
-    log.info('Starting Revel Operations Cash Summary actor.');
+    log.info('Starting Revel Operations Discount Reason actor.');
 
     // --------------------------------------------------
     // SUPABASE
@@ -1727,20 +1650,12 @@ try {
 
 
             // ==================================================
-            // CASH SUMMARY AND DISCOUNT REASONS
+            // DISCOUNT REASONS
             // ==================================================
-
-            const cashSummary =
-                extractCashSummary(rows);
 
             const discountReasons =
                 extractDiscountReasons(rows);
 
-
-            log.info(
-                'Cash Summary extracted.',
-                cashSummary,
-            );
 
             log.info(
                 'Discount Reasons extracted.',
@@ -1752,37 +1667,6 @@ try {
 
 
             // ==================================================
-            // REQUIRED CASH SUMMARY FIELDS
-            // ==================================================
-
-            const requiredFields = [
-                'Starting cash',
-                'Cash Payments',
-                'Total Expected Cash',
-                'Declared Cash',
-                'Variance',
-            ];
-
-
-            for (
-                const field
-                of requiredFields
-            ) {
-
-                if (
-                    cashSummary[field]
-                    === undefined
-                ) {
-                    throw new Error(
-                        `Expected Cash Summary `
-                        + `field not found: `
-                        + `${field}`,
-                    );
-                }
-            }
-
-
-            // ==================================================
             // BUSINESS DATE
             // ==================================================
 
@@ -1790,186 +1674,6 @@ try {
                 formatBusinessDate(
                     startDate,
                 );
-
-
-            // ==================================================
-            // BUILD SUPABASE ROW
-            // ==================================================
-
-            const cashSummaryRow = {
-
-                id:
-                    `${formattedBusinessDate}_`
-                    + `${currentEstablishment}`,
-
-                location:
-                    currentEstablishment,
-
-                business_date:
-                    formattedBusinessDate,
-
-
-                starting_cash:
-                    toNumber(
-                        cashSummary[
-                            'Starting cash'
-                        ],
-                    ),
-
-
-                cash_payments:
-                    toNumber(
-                        cashSummary[
-                            'Cash Payments'
-                        ],
-                    ),
-
-
-                pay_ins:
-                    toNumber(
-                        cashSummary[
-                            'Pay Ins'
-                        ],
-                    ),
-
-
-                pay_outs:
-                    toNumber(
-                        cashSummary[
-                            'Pay Outs'
-                        ],
-                    ),
-
-
-                safe_drops:
-                    toNumber(
-                        cashSummary[
-                            'Safe Drops'
-                        ],
-                    ),
-
-
-                total_expected_cash:
-                    toNumber(
-                        cashSummary[
-                            'Total Expected Cash'
-                        ],
-                    ),
-
-
-                expected_cash_from_tills:
-                    toNumber(
-                        cashSummary[
-                            'Expected Cash '
-                            + '(from Tills)'
-                        ],
-                    ),
-
-
-                other:
-                    toNumber(
-                        cashSummary[
-                            'Other'
-                        ],
-                    ),
-
-
-                declared_cash:
-                    toNumber(
-                        cashSummary[
-                            'Declared Cash'
-                        ],
-                    ),
-
-
-                variance:
-                    toNumber(
-                        cashSummary[
-                            'Variance'
-                        ],
-                    ),
-
-
-                expected_total_cash_to_business:
-                    toNumber(
-                        cashSummary[
-                            'Expected total '
-                            + 'cash to business'
-                        ],
-                    ),
-
-
-                actual_total_cash_to_business:
-                    toNumber(
-                        cashSummary[
-                            'Actual total '
-                            + 'cash to business'
-                        ],
-                    ),
-
-
-                number_of_no_sales:
-                    toNumber(
-                        cashSummary[
-                            'Number of No Sales '
-                            + '(Cash Drawer Opened)'
-                        ],
-                    ),
-
-
-                extracted_at:
-                    new Date()
-                        .toISOString(),
-            };
-
-
-            log.info(
-                `Prepared Cash Summary row: `
-                + `${cashSummaryRow.id}`,
-            );
-
-
-            // ==================================================
-            // SUPABASE UPSERT
-            // ==================================================
-
-            const {
-                data: savedRows,
-                error: supabaseError,
-            } =
-                await supabase
-                    .from(
-                        'daily-revel-cash-summary',
-                    )
-                    .upsert(
-                        cashSummaryRow,
-                        {
-                            onConflict: 'id',
-                        },
-                    )
-                    .select();
-
-
-            if (supabaseError) {
-                throw new Error(
-                    `Unable to write Cash Summary `
-                    + `to Supabase: `
-                    + `${supabaseError.message}`,
-                );
-            }
-
-
-            log.info(
-                `Cash Summary successfully `
-                + `saved to Supabase: `
-                + `${cashSummaryRow.id}`,
-            );
-
-
-            log.info(
-                `Variance: `
-                + `${cashSummaryRow.variance}`,
-            );
 
 
             // ==================================================
@@ -2043,23 +1747,13 @@ try {
                 status: 'success',
 
                 report:
-                    'Operations - Cash Summary '
-                    + 'and Discount Reasons',
+                    'Operations - Discount Reasons',
 
                 location:
                     currentEstablishment,
 
                 businessDate:
                     formattedBusinessDate,
-
-                recordId:
-                    cashSummaryRow.id,
-
-                variance:
-                    cashSummaryRow.variance,
-
-                savedRows:
-                    savedRows?.length ?? 0,
 
                 discountReasonRecordId:
                     discountReasonRow.id,
@@ -2103,8 +1797,7 @@ try {
                 status: 'failed',
 
                 report:
-                    'Operations - Cash Summary '
-                    + 'and Discount Reasons',
+                    'Operations - Discount Reasons',
 
                 portalUrl:
                     page
