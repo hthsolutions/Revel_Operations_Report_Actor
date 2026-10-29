@@ -30,17 +30,19 @@
             "title": "Revel establishment",
             "type": "string",
             "editor": "select",
-            "description": "Establishment to select after login. The current Actor version supports Leander only.",
+            "description": "Establishment to select after login.",
             "default": "Leander",
             "enum": [
                 "Lampasas",
                 "Leander",
-                "Marble Falls"
+                "Marble Falls",
+                "Temple"
             ],
             "enumTitles": [
                 "41 | Lampasas",
                 "42 | Leander",
-                "29 | Marble Falls"
+                "29 | Marble Falls",
+                "62 | Temple"
             ]
         },
         "override_flag": {
